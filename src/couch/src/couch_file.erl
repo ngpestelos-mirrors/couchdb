@@ -1020,8 +1020,8 @@ dup(#file{fd = Fd} = File) ->
                     % Use an effective infinity for eof max limit for now
                     put(?CFILE_HANDLE, CFile#file{eof = 1 bsl 60}),
                     CFile;
-                {error, _Error} ->
-                    File
+                {error, Error} ->
+                    throw({stop, {error, Error}})
             end;
         false ->
             File

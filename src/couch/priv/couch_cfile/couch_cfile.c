@@ -28,6 +28,7 @@
 #include <sys/stat.h>
 #include <sys/uio.h>
 #include <unistd.h>
+#include <sys/file.h>
 
 // erl_driver.h is for erl_errno_id()
 #include "erl_driver.h"
@@ -234,7 +235,7 @@ int efile_datasync(int fd, posix_errno_t* res_errno) {
 static ERL_NIF_TERM dup_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {
 #ifdef COUCH_CFILE_SUPPORTED
-   int fd, newfd;
+   int fd, newfd, flock_res;
    handle_t* hdl;
    ErlNifRWLock *lock;
    ErlNifPid pid;
@@ -257,6 +258,12 @@ static ERL_NIF_TERM dup_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
    if (newfd < 0) {
        return err_tup(env, errno);
    }
+
+   flock_res = flock(newfd, LOCK_EX | LOCK_NB);
+   if (flock_res == -1) {
+     return err_tup(env, errno);
+   }
+
    // From here on close the new dup-ed file descriptors on any failure.
 
    lock = enif_rwlock_create("couch_cfile:rwlock");
