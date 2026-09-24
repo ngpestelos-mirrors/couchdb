@@ -40,9 +40,12 @@ compact(State) ->
         idx_name = IdxName,
         sig = Sig,
         update_seq = Seq,
+        purge_seq = PurgeSeq,
         id_btree = IdBtree,
         views = Views
     } = State,
+    % Get the old PurgeSeq and apply it to the new state when we swap down
+    % below. Do not rely on reset_index to give us the db's purge seq.
     erlang:put(io_priority, {view_compact, DbName, IdxName}),
 
     {EmptyState, NumDocIds} = couch_util:with_db(DbName, fun(Db) ->
@@ -126,10 +129,16 @@ compact(State) ->
     ),
 
     unlink(EmptyState#mrst.fd),
+    % EmptyState from reset_index/3 has the purge_seq set to db's purge
+    % sequence. However the B-trees we just copied are from the old state, and
+    % we should also carry over the old purge_seq of this view, so it can
+    % continue processsing where it left off right before the compaction
+    % started.
     {ok, EmptyState#mrst{
         id_btree = NewIdBtree,
         views = NewViews,
-        update_seq = Seq
+        update_seq = Seq,
+        purge_seq = PurgeSeq
     }}.
 
 recompact(State) ->
