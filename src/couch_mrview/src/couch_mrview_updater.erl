@@ -69,14 +69,21 @@ start_update(Partial, State, NumChanges, NumChangesDone) ->
 
     {ok, InitState}.
 
-purge(_Db, PurgeSeq, PurgedIdRevs, State) ->
+purge(Db, PurgeSeq, PurgedIdRevs, State) ->
     #mrst{
         id_btree = IdBtree,
         views = Views,
         partitioned = Partitioned
     } = State,
 
-    Ids = [Id || {Id, _Revs} <- PurgedIdRevs],
+    % We cannot remove rows if there are still FDIs present in the db. That
+    % means the FDI was either not changed since the index saw it (non-leaf or
+    % a bogus revision was purged) or it changed after that when we relabel the
+    % leafs with update sequences, and then it will be in the regular changes
+    % feed for the index.
+    Ids0 = [Id || {Id, _Revs} <- PurgedIdRevs],
+    FDIs = couch_db:get_full_doc_infos(Db, Ids0),
+    Ids = [Id || {Id, not_found} <- lists:zip(Ids0, FDIs)],
     {ok, Lookups, IdBtree2} = couch_btree:query_modify(IdBtree, Ids, [], Ids),
 
     MakeDictFun = fun
