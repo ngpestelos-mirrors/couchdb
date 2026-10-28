@@ -202,6 +202,7 @@ public final class IndexManager implements Managed {
                 case NOT_LOADED:
                 case UNLOADED:
                     if (forceDelete) {
+                        LOGGER.debug("deleting unloaded index {}", name);
                         IOUtils.rm(indexRootPath(name));
                     }
                     break;
