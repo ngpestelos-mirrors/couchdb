@@ -221,7 +221,7 @@ HTTP Server Options
         large HTTP requests rather than for limiting maximum document sizes. ::
 
             [chttpd]
-            max_http_request_size = 4294967296 ; 4 GB
+            max_http_request_size = 2147483647
 
         .. warning::
            Before version 2.1.0 :config:option:`couchdb/max_document_size` was
