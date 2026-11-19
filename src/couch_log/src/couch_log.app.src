@@ -14,6 +14,6 @@
     {description, "CouchDB Log API"},
     {vsn, git},
     {registered, [couch_log_sup]},
-    {applications, [kernel, stdlib, config]},
+    {applications, [kernel, stdlib, config, couch_epi]},
     {mod, {couch_log_app, []}}
 ]}.
