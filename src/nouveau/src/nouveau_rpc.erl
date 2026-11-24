@@ -23,10 +23,7 @@
 -include("nouveau.hrl").
 -import(nouveau_util, [index_path/1]).
 
-search(DbName, #index{} = Index, #{} = QueryArgs) ->
-    search(DbName, #index{} = Index, QueryArgs, 0).
-
-search(DbName, #index{} = Index0, QueryArgs0, UpdateLatency) ->
+search(DbName, #index{} = Index0, #{} = QueryArgs0) ->
     %% Incorporate the shard name into the record.
     Index1 = Index0#index{dbname = DbName},
 
@@ -49,29 +46,36 @@ search(DbName, #index{} = Index0, QueryArgs0, UpdateLatency) ->
                 }
         end,
 
+    search_int(DbName, Index1, QueryArgs1, Update, 0).
+
+search_int(DbName, #index{} = Index, QueryArgs, Update, UpdateLatency) ->
     %% Run the search
-    case nouveau_api:search(Index1, QueryArgs1) of
+    case nouveau_api:search(Index, QueryArgs) of
         {ok, Response} ->
-            rexi:reply({ok, Response#{update_latency => UpdateLatency}});
+            rexi:reply(
+                {ok, Response#{
+                    update_latency => erlang:convert_time_unit(UpdateLatency, native, millisecond)
+                }}
+            );
         {error, stale_index} when Update ->
-            update_and_retry(DbName, Index0, QueryArgs0, UpdateLatency);
+            update_and_retry(DbName, Index, QueryArgs, Update, UpdateLatency);
         {error, {not_found, _}} when Update ->
-            update_and_retry(DbName, Index0, QueryArgs0, UpdateLatency);
+            update_and_retry(DbName, Index, QueryArgs, Update, UpdateLatency);
         Else ->
             rexi:reply(Else)
     end.
 
-update_and_retry(DbName, Index, QueryArgs, UpdateLatency) ->
+update_and_retry(DbName, Index, QueryArgs, Update, UpdateLatency) ->
     T0 = erlang:monotonic_time(),
     case nouveau_index_manager:update_index(Index#index{dbname = DbName}) of
         ok ->
             T1 = erlang:monotonic_time(),
-            search(
+            search_int(
                 DbName,
                 Index,
                 QueryArgs,
-                UpdateLatency +
-                    erlang:convert_time_unit(T1 - T0, native, millisecond)
+                Update,
+                UpdateLatency + T1 - T0
             );
         Else ->
             rexi:reply(Else)
